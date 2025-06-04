@@ -1,0 +1,200 @@
+--[[
+Luna UI Library
+Inspired by Luna Interface Suite by Nebula Softworks
+Single-file UI library for Roblox
+]]
+
+local Luna = {
+    Folder = "LunaUI",
+    Options = {},
+    Version = "1.0.0",
+}
+
+-- Roblox Services
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+
+-- Utility Functions
+local function tween(instance, properties, duration, easingStyle, easingDirection)
+    duration = duration or 0.3
+    easingStyle = easingStyle or Enum.EasingStyle.Quad
+    easingDirection = easingDirection or Enum.EasingDirection.InOut
+    local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
+    local tween = TweenService:Create(instance, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+local function create(instanceType, properties, parent)
+    local instance = Instance.new(instanceType)
+    for prop, value in pairs(properties or {}) do
+        instance[prop] = value
+    end
+    if parent then
+        instance.Parent = parent
+    end
+    return instance
+end
+
+-- Window Creation
+function Luna:CreateWindow(settings)
+    settings = settings or {}
+    local Window = {
+        Name = settings.Name or "Luna UI",
+        Subtitle = settings.Subtitle or "by Luna",
+        Bind = settings.Bind or Enum.KeyCode.RightShift,
+        State = false,
+        Size = false, -- Minimized state
+    }
+
+    -- Create ScreenGui
+    local LunaUI = create("ScreenGui", {
+        Name = "LunaUI",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    }, CoreGui)
+
+    -- Create Main Frame
+    local Main = create("Frame", {
+        Name = "Main",
+        Size = UDim2.new(0, 600, 0, 400),
+        Position = UDim2.new(0.5, -300, 0.5, -200),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+        BorderSizePixel = 0,
+        Visible = false,
+    }, LunaUI)
+
+    create("UICorner", { CornerRadius = UDim.new(0, 8) }, Main)
+
+    -- Topbar
+    local Topbar = create("Frame", {
+        Name = "Topbar",
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+        BorderSizePixel = 0,
+    }, Main)
+
+    create("UICorner", { CornerRadius = UDim.new(0, 8) }, Topbar)
+
+    local Title = create("TextLabel", {
+        Name = "Title",
+        Size = UDim2.new(0, 200, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = Window.Name .. " | " .. Window.Subtitle,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextSize = 14,
+        Font = Enum.Font.SourceSansBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, Topbar)
+
+    -- Close Button
+    local Controls = create("Frame", {
+        Name = "Controls",
+        Size = UDim2.new(0, 100, 1, 0),
+        Position = UDim2.new(1, -100, 0, 0),
+        BackgroundTransparency = 1,
+    }, Topbar)
+
+    local Close = create("Frame", {
+        Name = "Close",
+        Size = UDim2.new(0, 30, 0, 30),
+        Position = UDim2.new(1, -35, 0.5, -15),
+        BackgroundTransparency = 0.25,
+        BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+    }, Controls)
+
+    create("UICorner", { CornerRadius = UDim.new(0, 6) }, Close)
+
+    local CloseImage = create("ImageLabel", {
+        Name = "ImageLabel",
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(0.5, -10, 0.5, -10),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://6031094678", -- Close icon
+        ImageColor3 = Color3.fromRGB(195, 195, 195),
+    }, Close)
+
+    -- Drag Functionality
+    local dragBar = create("Frame", {
+        Name = "DragBar",
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+    }, Main)
+
+    local dragging, dragStart, startPos
+    dragBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    dragBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            if dragging then
+                local delta = input.Position - dragStart
+                Main.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+
+    -- Show/Hide Logic
+    local function Hide()
+        Window.State = false
+        Main.Visible = false
+    end
+
+    local function Unhide()
+        Window.State = true
+        Main.Visible = true
+    end
+
+    CloseImage.MouseButton1Click:Connect(function()
+        Hide()
+    end)
+
+    Close.MouseEnter:Connect(function()
+        tween(CloseImage, { ImageColor3 = Color3.new(1, 1, 1) })
+    end)
+
+    Close.MouseLeave:Connect(function()
+        tween(CloseImage, { ImageColor3 = Color3.fromRGB(195, 195, 195) })
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Window.Bind then
+            if Window.State then
+                Hide()
+            else
+                Unhide()
+            end
+        end
+    end)
+
+    return Window
+end
+
+function Luna:Destroy()
+    if game.CoreGui:FindFirstChild("LunaUI") then
+        game.CoreGui.LunaUI:Destroy()
+    end
+end
+
+return Luna
