@@ -1,0 +1,742 @@
+-- SnowtUI.lua: A modern, animated UI library for Roblox with gradient effects and modular components
+
+local SnowtUI = {}
+SnowtUI.__index = SnowtUI
+
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Local player
+local LocalPlayer = Players.LocalPlayer
+
+-- Constants for UI configuration
+local WINDOW_SIZE = UDim2.new(0, 600, 0, 400)
+local LOADING_SIZE = UDim2.new(0, 150, 0, 100)
+local CORNER_RADIUS = UDim.new(0, 10)
+local ANIMATION_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- Creates a gradient for UI elements
+local function createGradient(colors)
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new(colors)
+    gradient.Rotation = 45
+    return gradient
+end
+
+-- Creates a new UI library instance
+function SnowtUI.new(title, subtitle)
+    local self = setmetatable({}, SnowtUI)
+    
+    -- Main ScreenGui
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "SnowtUIGui"
+    self.ScreenGui.ResetOnSpawn = false
+    self.ScreenGui.Parent = LocalPlayer.PlayerGui
+    
+    -- Main Window
+    self.MainFrame = Instance.new("Frame")
+    self.MainFrame.Size = WINDOW_SIZE
+    self.MainFrame.Position = UDim2.new(0.5, -WINDOW_SIZE.X.Offset / 2, 0.5, -WINDOW_SIZE.Y.Offset / 2)
+    self.MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    self.MainFrame.ClipsDescendants = true
+    self.MainFrame.Parent = self.ScreenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = self.MainFrame
+    
+    local gradient = createGradient({Color3.fromRGB(60, 60, 60), Color3.fromRGB(30, 30, 30)})
+    gradient.Parent = self.MainFrame
+    
+    -- Title and Subtitle
+    self.TitleLabel = Instance.new("TextLabel")
+    self.TitleLabel.Size = UDim2.new(0, 200, 0, 30)
+    self.TitleLabel.Position = UDim2.new(0, 20, 0, 10)
+    self.TitleLabel.BackgroundTransparency = 1
+    self.TitleLabel.Text = title or "SnowtUI"
+    self.TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.TitleLabel.Font = Enum.Font.GothamBold
+    self.TitleLabel.TextSize = 18
+    self.TitleLabel.Parent = self.MainFrame
+    
+    self.SubtitleLabel = Instance.new("TextLabel")
+    self.SubtitleLabel.Size = UDim2.new(0, 200, 0, 20)
+    self.SubtitleLabel.Position = UDim2.new(0, 20, 0, 40)
+    self.SubtitleLabel.BackgroundTransparency = 1
+    self.SubtitleLabel.Text = subtitle or "Customizable Interface"
+    self.SubtitleLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    self.SubtitleLabel.Font = Enum.Font.Gotham
+    self.SubtitleLabel.TextSize = 14
+    self.SubtitleLabel.Parent = self.MainFrame
+    
+    -- Tabs Container
+    self.TabsFrame = Instance.new("ScrollingFrame")
+    self.TabsFrame.Size = UDim2.new(0, 150, 0, 200)
+    self.TabsFrame.Position = UDim2.new(0, 20, 0, 70)
+    self.TabsFrame.BackgroundTransparency = 1
+    self.TabsFrame.ScrollBarThickness = 4
+    self.TabsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    self.TabsFrame.Parent = self.MainFrame
+    
+    local tabListLayout = Instance.new("UIListLayout")
+    tabListLayout.Padding = UDim.new(0, 5)
+    tabListLayout.Parent = self.TabsFrame
+    
+    self.Tabs = {}
+    self.ActiveTab = nil
+    
+    -- Player Profile
+    self.ProfileFrame = Instance.new("Frame")
+    self.ProfileFrame.Size = UDim2.new(0, 150, 0, 80)
+    self.ProfileFrame.Position = UDim2.new(0, 20, 1, -90)
+    self.ProfileFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    self.ProfileFrame.Parent = self.MainFrame
+    
+    local profileCorner = Instance.new("UICorner")
+    profileCorner.CornerRadius = CORNER_RADIUS
+    profileCorner.Parent = self.ProfileFrame
+    
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 50, 0, 50)
+    avatar.Position = UDim2.new(0, 10, 0, 10)
+    avatar.BackgroundTransparency = 1
+    avatar.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size100x100)
+    avatar.Parent = self.ProfileFrame
+    
+    local username = Instance.new("TextLabel")
+    username.Size = UDim2.new(0, 80, 0, 20)
+    username.Position = UDim2.new(0, 70, 0, 30)
+    username.BackgroundTransparency = 1
+    username.Text = LocalPlayer.Name
+    username.TextColor3 = Color3.fromRGB(255, 255, 255)
+    username.Font = Enum.Font.Gotham
+    username.TextSize = 14
+    username.TextXAlignment = Enum.TextXAlignment.Left
+    username.Parent = self.ProfileFrame
+    
+    -- Content Area
+    self.ContentFrame = Instance.new("Frame")
+    self.ContentFrame.Size = UDim2.new(0, 400, 0, 340)
+    self.ContentFrame.Position = UDim2.new(0, 180, 0, 50)
+    self.ContentFrame.BackgroundTransparency = 1
+    self.ContentFrame.ClipsDescendants = true
+    self.ContentFrame.Parent = self.MainFrame
+    
+    -- Control Buttons (Minimize and Close)
+    self.MinimizeButton = Instance.new("TextButton")
+    self.MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+    self.MinimizeButton.Position = UDim2.new(1, -70, 0, 10)
+    self.MinimizeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    self.MinimizeButton.Text = "-"
+    self.MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.MinimizeButton.Font = Enum.Font.GothamBold
+    self.MinimizeButton.TextSize = 16
+    self.MinimizeButton.Parent = self.MainFrame
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = CORNER_RADIUS
+    minimizeCorner.Parent = self.MinimizeButton
+    
+    self.CloseButton = Instance.new("TextButton")
+    self.CloseButton.Size = UDim2.new(0, 30, 0, 30)
+    self.CloseButton.Position = UDim2.new(1, -30, 0, 10)
+    self.CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    self.CloseButton.Text = "X"
+    self.CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.CloseButton.Font = Enum.Font.GothamBold
+    self.CloseButton.TextSize = 16
+    self.CloseButton.Parent = self.MainFrame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = CORNER_RADIUS
+    closeCorner.Parent = self.CloseButton
+    
+    -- Animations
+    local function animateHover(button)
+        button.MouseEnter:Connect(function()
+            TweenService:Create(button, ANIMATION_INFO, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
+        end)
+        button.MouseLeave:Connect(function()
+            TweenService:Create(button, ANIMATION_INFO, {BackgroundColor3 = button == self.CloseButton and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(50, 50, 50)}):Play()
+        end)
+    end
+    
+    animateHover(self.MinimizeButton)
+    animateHover(self.CloseButton)
+    
+    -- Button Functionality
+    self.MinimizeButton.MouseButton1Click:Connect(function()
+        self.MainFrame.Visible = not self.MainFrame.Visible
+        TweenService:Create(self.MainFrame, ANIMATION_INFO, {Size = self.MainFrame.Visible and WINDOW_SIZE or UDim2.new(0, 30, 0, 30)}):Play()
+    end)
+    
+    self.CloseButton.MouseButton1Click:Connect(function()
+        self.ScreenGui:Destroy()
+    end)
+    
+    -- Notification Container
+    self.NotificationFrame = Instance.new("Frame")
+    self.NotificationFrame.Size = UDim2.new(0, 300, 0, 400)
+    self.NotificationFrame.Position = UDim2.new(1, -320, 0, 20)
+    self.NotificationFrame.BackgroundTransparency = 1
+    self.NotificationFrame.Parent = self.ScreenGui
+    
+    local notificationListLayout = Instance.new("UIListLayout")
+    notificationListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    notificationListLayout.Padding = UDim.new(0, 10)
+    notificationListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    notificationListLayout.Parent = self.NotificationFrame
+    
+    return self
+end
+
+-- Add a new tab
+function SnowtUI:AddTab(name)
+    local tabButton = Instance.new("TextButton")
+    tabButton.Size = UDim2.new(1, -10, 0, 30)
+    tabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    tabButton.Text = name
+    tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabButton.Font = Enum.Font.Gotham
+    tabButton.TextSize = 14
+    tabButton.Parent = self.TabsFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = tabButton
+    
+    local tabContent = Instance.new("ScrollingFrame")
+    tabContent.Size = UDim2.new(1, 0, 1, 0)
+    tabContent.BackgroundTransparency = 1
+    tabContent.Visible = false
+    tabContent.ScrollBarThickness = 4
+    tabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+    tabContent.Parent = self.ContentFrame
+    
+    local contentListLayout = Instance.new("UIListLayout")
+    contentListLayout.Padding = UDim.new(0, 10)
+    contentListLayout.Parent = tabContent
+    
+    local tab = {Button = tabButton, Content = tabContent}
+    table.insert(self.Tabs, tab)
+    
+    self.TabsFrame.CanvasSize = UDim2.new(0, 0, 0, self.TabsFrame.UIListLayout.AbsoluteContentSize.Y)
+    
+    tabButton.MouseButton1Click:Connect(function()
+        if self.ActiveTab then
+            self.ActiveTab.Content.Visible = false
+            TweenService:Create(self.ActiveTab.Button, ANIMATION_INFO, {BackgroundColor3 = Color3.fromRGB(50, 50, 50)}):Play()
+        end
+        tab.Content.Visible = true
+        self.ActiveTab = tab
+        TweenService:Create(tabButton, ANIMATION_INFO, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
+    end)
+    
+    contentListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        tabContent.CanvasSize = UDim2.new(0, 0, 0, contentListLayout.AbsoluteContentSize.Y)
+    end)
+    
+    return tab.Content
+end
+
+-- Set Title and Subtitle
+function SnowtUI:SetTitle(title)
+    self.TitleLabel.Text = title
+end
+
+function SnowtUI:SetSubtitle(subtitle)
+    self.SubtitleLabel.Text = subtitle
+end
+
+-- UI Elements
+function SnowtUI:AddButton(tab, text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -20, 0, 40)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.Gotham
+    button.TextSize = 14
+    button.Parent = tab
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = button
+    
+    local gradient = createGradient({Color3.fromRGB(80, 80, 80), Color3.fromRGB(50, 50, 50)})
+    gradient.Parent = button
+    
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, ANIMATION_INFO, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, ANIMATION_INFO, {BackgroundColor3 = Color3.fromRGB(50, 50, 50)}):Play()
+    end)
+    
+    button.MouseButton1Click:Connect(function()
+        if callback then callback() end
+    end)
+    
+    return button
+end
+
+function SnowtUI:AddToggle(tab, text, default, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(1, -20, 0, 40)
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.Parent = tab
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = toggleFrame
+    
+    local toggleButton = Instance.new("Frame")
+    toggleButton.Size = UDim2.new(0, 50, 0, 25)
+    toggleButton.Position = UDim2.new(1, -50, 0.5, -12.5)
+    toggleButton.BackgroundColor3 = default and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(50, 50, 50)
+    toggleButton.Parent = toggleFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12.5)
+    corner.Parent = toggleButton
+    
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 20, 0, 20)
+    knob.Position = default and UDim2.new(1, -25, 0.5, -10) or UDim2.new(0, 5, 0.5, -10)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    knob.Parent = toggleButton
+    
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(0, 10)
+    knobCorner.Parent = knob
+    
+    local toggleState = default
+    toggleButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            toggleState = not toggleState
+            TweenService:Create(toggleButton, ANIMATION_INFO, {BackgroundColor3 = toggleState and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(50, 50, 50)}):Play()
+            TweenService:Create(knob, ANIMATION_INFO, {Position = toggleState and UDim2.new(1, -25, 0.5, -10) or UDim2.new(0, 5, 0.5, -10)}):Play()
+            if callback then callback(toggleState) end
+        end)
+    end)
+    
+    return toggleFrame
+end
+
+function SnowtUI:AddColorpicker(tab, text, default, callback)
+    local pickerFrame = Instance.new("Frame")
+    pickerFrame.Size = UDim2.new(1, -20, 0, 40)
+    pickerFrame.BackgroundTransparency = 1
+    pickerFrame.Parent = tab
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = pickerFrame
+    
+    local colorButton = Instance.new("Frame")
+    colorButton.Size = UDim2.new(0, 30, 0, 30)
+    colorButton.Position = UDim2.new(1, -40, 0.5, -15)
+    colorButton.BackgroundColor3 = default or Color3.fromRGB(255, 255, 255)
+    colorButton.Parent = pickerFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = colorButton
+    
+    -- Simplified color picker (Roblox doesn't support native color picking, so this is a placeholder)
+    colorButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            -- In a real implementation, you'd show a color picker UI here
+            local newColor = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+            colorButton.BackgroundColor3 = newColor
+            if callback then callback(newColor) end
+        end
+    end)
+    
+    return pickerFrame
+end
+
+function SnowtUI:AddDropdown(tab, text, options, default, callback)
+    local dropdownFrame = Instance.new("Frame")
+    dropdownFrame.Size = UDim2.new(1, -20, 0, 40)
+    dropdownFrame.BackgroundTransparency = 1
+    dropdownFrame.Parent = tab
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = dropdownFrame
+    
+    local dropdownButton = Instance.new("TextButton")
+    dropdownButton.Size = UDim2.new(0, 100, 0, 30)
+    dropdownButton.Position = UDim2.new(1, -110, 0.5, -15)
+    dropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    dropdownButton.Text = default or options[1] or ""
+    dropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdownButton.Font = Enum.Font.Gotham
+    dropdownButton.TextSize = 14
+    dropdownButton.Parent = dropdownFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = dropdownButton
+    
+    local dropdownMenu = Instance.new("Frame")
+    dropdownMenu.Size = UDim2.new(0, 100, 0, 0)
+    dropdownMenu.Position = UDim2.new(1, -110, 0.5, 15)
+    dropdownMenu.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    dropdownMenu.Visible = false
+    dropdownMenu.Parent = dropdownFrame
+    
+    local menuCorner = Instance.new("UICorner")
+    menuCorner.CornerRadius = CORNER_RADIUS
+    menuCorner.Parent = dropdownMenu
+    
+    local menuListLayout = Instance.new("UIListLayout")
+    menuListLayout.Padding = UDim.new(0, 5)
+    menuListLayout.Parent = dropdownMenu
+    
+    for i, option in ipairs(options) do
+        local optionButton = Instance.new("TextButton")
+        optionButton.Size = UDim2.new(1, -10, 0, 30)
+        optionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        optionButton.Text = option
+        optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optionButton.Font = Enum.Font.Gotham
+        optionButton.TextSize = 14
+        optionButton.Parent = dropdownMenu
+        
+        local optionCorner = Instance.new("UICorner")
+        optionCorner.CornerRadius = CORNER_RADIUS
+        optionCorner.Parent = optionButton
+        
+        optionButton.MouseButton1Click:Connect(function()
+            dropdownButton.Text = option
+            dropdownMenu.Visible = false
+            TweenService:Create(dropdownMenu, ANIMATION_INFO, {Size = UDim2.new(0, 100, 0, 0)}):Play()
+            if callback then callback(option) end
+        end)
+    end
+    
+    dropdownButton.MouseButton1Click:Connect(function()
+        dropdownMenu.Visible = not dropdownMenu.Visible
+        local menuHeight = #options * 35
+        TweenService:Create(dropdownMenu, ANIMATION_INFO, {Size = dropdownMenu.Visible and UDim2.new(0, 100, 0, menuHeight) or UDim2.new(0, 100, 0, 0)}):Play()
+    end)
+    
+    return dropdownFrame
+end
+
+function SnowtUI:AddSlider(tab, text, min, max, default, callback)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, -20, 0, 60)
+    sliderFrame.BackgroundTransparency = 1
+    sliderFrame.Parent = tab
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = sliderFrame
+    
+    local sliderTrack = Instance.new("Frame")
+    sliderTrack.Size = UDim2.new(1, -20, 0, 10)
+    sliderTrack.Position = UDim2.new(0, 10, 0, 40)
+    sliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    sliderTrack.Parent = sliderFrame
+    
+    local trackCorner = Instance.new("UICorner")
+    trackCorner.CornerRadius = UDim.new(0, 5)
+    trackCorner.Parent = sliderTrack
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    fill.Parent = sliderTrack
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 5)
+    fillCorner.Parent = fill
+    
+    local fillGradient = createGradient({Color3.fromRGB(100, 255, 100), Color3.fromRGB(50, 200, 50)})
+    fillGradient.Parent = fill
+    
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(0, 50, 0, 20)
+    valueLabel.Position = UDim2.new(1, -60, 0, 15)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.Text = tostring(default)
+    valueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    valueLabel.Font = Enum.Font.Gotham
+    valueLabel.TextSize = 14
+    valueLabel.Parent = sliderFrame
+    
+    local dragging = false
+    sliderTrack.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    
+    sliderTrack.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mouseX = input.Position.X
+            local trackAbsPos = sliderTrack.AbsolutePosition.X
+            local trackAbsSize = sliderTrack.AbsoluteSize.X
+            local relative = math.clamp((mouseX - trackAbsPos) / trackAbsSize, 0, 1)
+            local value = min + (max - min) * relative
+            value = math.round(value)
+            fill.Size = UDim2.new(relative, 0, 1, 0)
+            valueLabel.Text = tostring(value)
+            if callback then callback(value) end
+        end
+    end)
+    
+    return sliderFrame
+end
+
+function SnowtUI:AddInput(tab, text, placeholder, callback)
+    local inputFrame = Instance.new("Frame")
+    inputFrame.Size = UDim2.new(1, -20, 0, 40)
+    inputFrame.BackgroundTransparency = 1
+    inputFrame.Parent = tab
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = inputFrame
+    
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0, 100, 0, 30)
+    textBox.Position = UDim2.new(1, -110, 0.5, -15)
+    textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    textBox.Text = ""
+    textBox.PlaceholderText = placeholder or "Enter text..."
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 14
+    textBox.Parent = inputFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = textBox
+    
+    textBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed and callback then
+            callback(textBox.Text)
+        end
+    end)
+    
+    return inputFrame
+end
+
+function SnowtUI:AddSection(tab, text)
+    local sectionFrame = Instance.new("Frame")
+    sectionFrame.Size = UDim2.new(1, -20, 0, 30)
+    sectionFrame.BackgroundTransparency = 1
+    sectionFrame.Parent = tab
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = sectionFrame
+    
+    return sectionFrame
+end
+
+function SnowtUI:AddParagraph(tab, text)
+    local paragraphFrame = Instance.new("Frame")
+    paragraphFrame.Size = UDim2.new(1, -20, 0, 60)
+    paragraphFrame.BackgroundTransparency = 1
+    paragraph logicielsFrame.Parent = tab
+    
+    local paragraph = Instance.new("TextLabel")
+    paragraph.Size = UDim2.new(1, 0, 1, 0)
+    paragraph.BackgroundTransparency = 1
+    paragraph.Text = text
+    paragraph.TextColor3 = Color3.fromRGB(255, 255, 255)
+    paragraph.Font = Enum.Font.Gotham
+    paragraph.TextSize = 14
+    paragraph.TextXAlignment = Enum.TextXAlignment.Left
+    paragraph.TextYAlignment = Enum.TextYAlignment.Top
+    paragraph.TextWrapped = true
+    paragraph.Parent = paragraphFrame
+    
+    return paragraphFrame
+end
+
+function SnowtUI:AddCode(tab, codeText)
+    local codeFrame = Instance.new("Frame")
+    codeFrame.Size = UDim2.new(1, -20, 0, 100)
+    codeFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    codeFrame.Parent = tab
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = codeFrame
+    
+    local codeLabel = Instance.new("TextLabel")
+    codeLabel.Size = UDim2.new(1, -10, 1, -10)
+    codeLabel.Position = UDim2.new(0, 5, 0, 5)
+    codeLabel.BackgroundTransparency = 1
+    codeLabel.Text = codeText
+    codeLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+    codeLabel.Font = Enum.Font.Code
+    codeLabel.TextSize = 14
+    codeLabel.TextXAlignment = Enum.TextXAlignment.Left
+    codeLabel.TextYAlignment = Enum.TextYAlignment.Top
+    codeLabel.TextWrapped = true
+    codeLabel.Parent = codeFrame
+    
+    return codeFrame
+end
+
+-- Notification System
+function SnowtUI:Notify(text, duration)
+    local notification = Instance.new("Frame")
+    notification.Size = UDim2.new(0, 280, 0, 60)
+    notification.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    notification.Position = UDim2.new(0, 0, 1, 0)
+    notification.Parent = self.NotificationFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = notification
+    
+    local gradient = createGradient({Color3.fromRGB(80, 80, 80), Color3.fromRGB(40, 40, 40)})
+    gradient.Parent = notification
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -10, 1, -10)
+    label.Position = UDim2.new(0, 5, 0, 5)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+    label.TextWrapped = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.Parent = notification
+    
+    TweenService:Create(notification, ANIMATION_INFO, {Position = UDim2.new(0, 0, 1, -70)}):Play()
+    
+    spawn(function()
+        wait(duration or 3)
+        TweenService:Create(notification, ANIMATION_INFO, {Position = UDim2.new(0, 300, 1, -70)}):Play()
+        wait(ANIMATION_INFO.Time)
+        notification:Destroy()
+    end)
+end
+
+-- Loading Screen
+function SnowtUI.CreateLoadingScreen()
+    local loadingGui = Instance.new("ScreenGui")
+    loadingGui.Name = "LoadingGui"
+    loadingGui.ResetOnSpawn = false
+    loadingGui.Parent = LocalPlayer.PlayerGui
+    
+    local loadingFrame = Instance.new("Frame")
+    loadingFrame.Size = LOADING_SIZE
+    loadingFrame.Position = UDim2.new(0.5, -LOADING_SIZE.X.Offset / 2, 0.5, -LOADING_SIZE.Y.Offset / 2)
+    loadingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    loadingFrame.Parent = loadingGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = CORNER_RADIUS
+    corner.Parent = loadingFrame
+    
+    local gradient = createGradient({Color3.fromRGB(100, 100, 255), Color3.fromRGB(50, 50, 150)})
+    gradient.Parent = loadingFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "Loading Script"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Center
+    title.Parent = loadingFrame
+    
+    local progressBar = Instance.new("Frame")
+    progressBar.Size = UDim2.new(0.8, 0, 0, 10)
+    progressBar.Position = UDim2.new(0.1, 0, 0, 60)
+    progressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progressBar.Parent = loadingFrame
+    
+    local barCorner = Instance.new("UICorner")
+    barCorner.CornerRadius = UDim.new(0, 5)
+    barCorner.Parent = progressBar
+    
+    local progress = Instance.new("Frame")
+    progress.Size = UDim2.new(0, 0, 1, 0)
+    progress.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progress.Parent = progressBar
+    
+    local progressGradient = createGradient({Color3.fromRGB(100, 100, 255), Color3.fromRGB(50, 200, 255)})
+    progressGradient.Parent = progress
+    
+    local progressCorner = Instance.new("UICorner")
+    progressCorner.CornerRadius = UDim.new(0, 5)
+    progressCorner.Parent = progress
+    
+    -- Progress animation
+    local function updateProgress(value)
+        TweenService:Create(progress, ANIMATION_INFO, {Size = UDim2.new(value, 0, 1, 0)}):Play()
+    end
+    
+    -- Simulate loading
+    spawn(function()
+        for i = 0, 1, 0.01 do
+            updateProgress(i)
+            wait(0.05)
+        end
+        wait(0.5)
+        loadingGui:Destroy()
+    end)
+    
+    return loadingGui
+end
+
+return SnowtUI
