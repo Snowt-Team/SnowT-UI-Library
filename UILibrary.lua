@@ -36,13 +36,18 @@ function UIElement:SetVisible(visible)
 	return self
 end
 
+function UIElement:SetBackgroundTransparency(transparency)
+	self.Instance.BackgroundTransparency = transparency or 0
+	return self
+end
+
 -- Метод для включения перетаскивания (Dragging)
 function UIElement:MakeDraggable()
 	local dragging = false
 	local dragStart = nil
 	local startPos = nil
 
-	local function updatePosition(input)
+	localload function updatePosition(input)
 		local delta = input.Position - dragStart
 		local newPosX = startPos.X.Scale + (delta.X / self.Instance.Parent.AbsoluteSize.X)
 		local newPosY = startPos.Y.Scale + (delta.Y / self.Instance.Parent.AbsoluteSize.Y)
@@ -52,13 +57,10 @@ function UIElement:MakeDraggable()
 	UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Touch and self.Instance:IsDescendantOf(game) then
 			local guiObjects = UserInputService:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-			for _, guiObject in ipairs(guiObjects) do
-				if guiObject == self.Instance or guiObject:IsDescendantOf(self.Instance) then
-					dragging = true
-					dragStart = input.Position
-					startPos = self.Instance.Position
-					break
-				end
+			if guiObjects[1] == self.Instance then -- Проверяем, что касание только на фрейме
+				dragging = true
+				dragStart = input.Position
+				startPos = self.Instance.Position
 			end
 		end
 	end)
@@ -142,6 +144,84 @@ function UILibrary.AddStroke(element, thickness, color)
 	stroke.Color = color or Color3.fromRGB(0, 0, 0)
 	stroke.Parent = element.Instance
 	return element
+end
+
+-- Функция для создания системы табов с прокруткой
+function UILibrary.CreateTabSystem(name, parent, tabs)
+	local tabSystem = {}
+	
+	-- Создаем контейнер для табов (ScrollingFrame)
+	local tabContainer = Instance.new("ScrollingFrame")
+	tabContainer.Name = name .. "TabContainer"
+	tabContainer.BackgroundTransparency = 1
+	tabContainer.Size = UDim2.new(0.3, 0, 1, 0) -- 30% ширины слева
+	tabContainer.Position = UDim2.new(0, 0, 0, 0)
+	tabContainer.CanvasSize = UDim2.new(0, 0, 0, 0) -- Автоматический размер
+	tabContainer.ScrollBarThickness = 4
+	tabContainer.Parent = parent
+
+	local contentContainer = Instance.new("Frame")
+	contentContainer.Name = name .. "ContentContainer"
+	contentContainer.BackgroundTransparency = 1
+	contentContainer.Size = UDim2.new(0.7, 0, 1, 0) -- 70% ширины справа
+	contentContainer.Position = UDim2.new(0.3, 0, 0, 0)
+	contentContainer.Parent = parent
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Top
+	layout.Padding = UDim.new(0.02, 0)
+	layout.Parent = tabContainer
+
+	-- Обновляем CanvasSize при добавлении новых табов
+	local function updateCanvasSize()
+		local totalHeight = layout.AbsoluteContentSize.Y
+		tabContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+	end
+
+	tabSystem.Tabs = {}
+	tabSystem.ContentFrames = {}
+	tabSystem.SelectTab = function(tabName)
+		for name, contentFrame in pairs(tabSystem.ContentFrames) do
+			contentFrame:SetVisible(name == tabName)
+		end
+		for name, tabButton in pairs(tabSystem.Tabs) do
+			tabButton.Instance.BackgroundColor3 = name == tabName and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(50, 50, 50)
+		end
+	end
+
+	for _, tab in ipairs(tabs) do
+		local tabName = tab.Name
+		local contentFrame = UILibrary.CreateFrame(tabName .. "Content", contentContainer)
+			:SetSize(1, 1)
+			:SetVisible(false)
+		tabSystem.ContentFrames[tabName] = contentFrame
+
+		local tabButton = UILibrary.CreateButton(tabName .. "Tab", tabName, tabContainer, function()
+			tabSystem.SelectTab(tabName)
+		end)
+			:SetSize(0.9, 0, 0, 40) -- Фиксированная высота кнопки
+		UILibrary.AddCorner(tabButton, 0.1)
+		tabSystem.Tabs[tabName] = tabButton
+
+		if tab.Content then
+			tab.Content(contentFrame.Instance)
+		end
+	end
+
+	-- Обновляем CanvasSize после создания всех табов
+	updateCanvasSize()
+
+	-- Подключаем обновление CanvasSize при изменении содержимого
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvasSize)
+
+	-- Активируем первую вкладку по умолчанию
+	if tabs[1] then
+		tabSystem.SelectTab(tabs[1].Name)
+	end
+
+	return UIElement.new(tabContainer)
 end
 
 return UILibrary
